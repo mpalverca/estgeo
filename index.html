@@ -1,531 +1,351 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-  <meta charset="UTF-8">
-  <title>Geovisor de Apoyo a la Gestión de Riesgos de Desastres en el Cantón Loja</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudios Geotécnicos - Cantón Loja</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            position: relative;
+        }
 
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f5f7fa;
-    }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 300;
+        }
 
-    .alert-simple {
-      padding: 15px;
-      background-color: #fff3cd;
-      border-left: 5px solid #ffc107;
-      border-radius: 4px;
-      color: #856404;
-      margin: 20px 0;
-    }
+        #map {
+            height: calc(100vh - 60px);
+            width: 100%;
+        }
 
-    /* Header */
-    .header {
-      background: linear-gradient(145deg, #2c3e50, #3498db);
-      color: white;
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
-      position: relative;
-    }
+        .info-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            max-width: 300px;
+            z-index: 1000;
+        }
 
-    .header h1 {
-      font-size: 24px;
-      font-weight: 300;
-    }
+        .info-panel h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 16px;
+        }
 
-    .header-controls {
-      display: flex;
-      gap: 10px;
-    }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
 
-    .container {
-      display: flex;
-      height: calc(100vh - 100px);
-      gap: 1rem;
-      padding: 1rem;
-    }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
 
-    .sidebar {
-      width: 300px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 18px;
+            }
 
-    .sidebar-header {
-      background: #2c3e50;
-      color: white;
-      padding: 1rem;
-    }
-
-    .sidebar-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1rem;
-    }
-
-    .map-container {
-      flex: 1;
-      position: relative;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    #map {
-      width: 100%;
-      height: 100%;
-      min-height: 400px;
-    }
-
-    .status {
-      padding: 0.75rem;
-      margin-bottom: 1rem;
-      border-radius: 4px;
-      font-size: 0.9rem;
-    }
-
-    .status.loading {
-      background: #e3f2fd;
-      color: #1976d2;
-      border: 1px solid #bbdefb;
-    }
-
-    .status.success {
-      background: #e8f5e8;
-      color: #2e7d32;
-      border: 1px solid #c8e6c9;
-    }
-
-    .status.error {
-      background: #ffebee;
-      color: #c62828;
-      border: 1px solid #ffcdd2;
-    }
-
-    .data-count {
-      background: #f8f9fa;
-      padding: 0.75rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      text-align: center;
-      font-weight: 500;
-      color: #495057;
-    }
-
-    .table-info {
-      background: #f8f9fa;
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-
-    .table-info h4 {
-      margin: 0 0 0.5rem 0;
-      color: #2c3e50;
-    }
-
-    .table-info p {
-      margin: 0.25rem 0;
-      color: #6c757d;
-    }
-
-    .layer-controls {
-      background: #f8f9fa;
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-    }
-
-    .layer-controls h4 {
-      margin: 0 0 0.5rem 0;
-      color: #2c3e50;
-    }
-
-    .layer-toggle {
-      display: flex;
-      align-items: center;
-      margin: 0.5rem 0;
-    }
-
-    .layer-toggle input[type="checkbox"] {
-      margin-right: 0.5rem;
-    }
-
-    .popup-content {
-      max-width: 280px;
-    }
-
-    .popup-content h4 {
-      margin: 0 0 0.5rem 0;
-      color: #2c3e50;
-    }
-
-    .popup-content p {
-      margin: 0.25rem 0;
-      font-size: 0.85rem;
-    }
-
-    .popup-content .label {
-      font-weight: 500;
-      color: #495057;
-    }
-
-    .legend {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      z-index: 1000;
-      background: white;
-      padding: 10px;
-      border-radius: 5px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-      max-width: 200px;
-    }
-
-    .legend h4 {
-      margin: 0 0 10px 0;
-      font-size: 0.9rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      margin: 5px 0;
-      font-size: 0.8rem;
-    }
-
-    .legend-icon {
-      width: 20px;
-      height: 20px;
-      margin-right: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .btn-primary {
-      background-color: #e74c3c;
-      color: white;
-    }
-
-    .legend-section {
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .legend-section:last-child {
-      border-bottom: none;
-    }
-
-    .legend-title {
-      font-weight: bold;
-      margin-bottom: 5px;
-      color: #2c3e50;
-    }
-
-    /* Estilos para los filtros */
-    .filter-controls {
-      background: #f8f9fa;
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .filter-controls h4 {
-      margin: 0 0 0.75rem 0;
-      color: #2c3e50;
-      font-size: 1rem;
-      border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 0.5rem;
-    }
-
-    .filter-group {
-      margin-bottom: 1rem;
-    }
-
-    .filter-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-size: 0.85rem;
-      color: #495057;
-      font-weight: 500;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 0.5rem 0.75rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.9rem;
-      background-color: #fff;
-      transition: border-color 0.3s;
-    }
-
-    .form-control:focus {
-      outline: none;
-      border-color: #3498db;
-      box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
-    }
-
-    .date-range {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .date-range span {
-      font-size: 0.9rem;
-      color: #6c757d;
-      padding: 0 0.25rem;
-    }
-
-    .btn-filter {
-      width: 100%;
-      padding: 0.6rem;
-      margin-top: 0.5rem;
-      background: #3498db;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: all 0.3s;
-      text-align: center;
-    }
-
-    .btn-filter:hover {
-      background: #2980b9;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-
-    .btn-reset {
-      background: #6c757d;
-    }
-
-    .btn-reset:hover {
-      background: #5a6268;
-    }
-
-    /* Estilos para select */
-    select.form-control {
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23333' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 0.75rem center;
-      background-size: 12px;
-      padding-right: 2rem;
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        flex-direction: column;
-        height: auto;
-      }
-
-      .sidebar {
-        width: 100%;
-        order: 2;
-      }
-
-      .map-container {
-        height: 400px;
-        order: 1;
-      }
-
-      .legend {
-        bottom: 10px;
-        right: 10px;
-        font-size: 0.8rem;
-      }
-      
-      .filter-controls {
-        padding: 0.75rem;
-      }
-      
-      .filter-group {
-        margin-bottom: 0.75rem;
-      }
-    }
-  </style>
+            .info-panel {
+                position: relative;
+                bottom: auto;
+                left: auto;
+                margin: 10px;
+                max-width: none;
+            }
+        }
+    </style>
 </head>
-
 <body>
-  <div class="header">
-    <h1>Geovisor de Apoyo a la Gestión de Riesgos de Desastres en el Cantón Loja</h1>
-    <p>- Coordinación de Gestión de Riesgos-Ing Millan Paul Alverca Gaona</p>
-    <div class="header-controls"></div>
-    <button class="info-button" onclick="toggleInfoPanel()">acerca de i</button>
-  </div>
-  
-  <div class="container">
-    <div class="sidebar">
-      <div class="sidebar-header">       
-        <h3>Panel de Control</h3>        
-      </div>
-      <div class="sidebar-content">
-         <div class="alert-simple">
-          ⚠️ <strong>Advertencia:</strong> La información presentada es de manera referencial y deberá asumirse con el
-          mayor cuidado y responsabilidad ya que la divulgación inadecuada de la misma está sujeta a acciones y sanciones contempladas en
-          la LOGIRD.
-        </div>
-        
-        <!-- Filtros -->
-        <div class="filter-controls">
-          <h4>Filtros</h4>
-          
-          <!-- Filtro por Prioridad -->
-          <div class="filter-group">
-            <label for="priorityFilter">Prioridad:</label>
-            <select id="priorityFilter" class="form-control">
-              <option value="TODAS">Todas</option>
-              <option value="ALTA">Alta</option>
-              <option value="MEDIA">Media</option>
-              <option value="BAJA">Baja</option>
-            </select>
-          </div>
-          
-          <!-- Filtro por Estado -->
-          <div class="filter-group">
-            <label for="statusFilter">Estado:</label>
-            <select id="statusFilter" class="form-control">
-              <option value="TODOS">Todos</option>
-              <option value="ATENDIDO">Atendido</option>
-              <option value="PENDIENTE">Pendiente</option>
-            </select>
-          </div>
-          
-          <!-- Filtro por Rango de Fechas -->
-          <div class="filter-group">
-            <label>Rango de fechas:</label>
-            <div class="date-range">
-              <input type="date" id="startDate" class="form-control" placeholder="Fecha inicio">
-              <span>a</span>
-              <input type="date" id="endDate" class="form-control" placeholder="Fecha fin">
-            </div>
-          </div>
-          
-          <button id="applyFilters" class="btn-filter">Aplicar Filtros</button>
-          <button id="resetFilters" class="btn-filter btn-reset">Restablecer</button>
-        </div>
-
-        <div id="status" class="status loading">🔎 Conectando a la base de datos...</div>
-
-        <div class="data-count">
-          <div>Afectaciones : <span id="pointCount">0</span></div>
-          <div>Área de influencia : <span id="polygonCount">0</span></div>
-          <div>Damage Cooper: <span id="cooperCount">0</span></div>
-          <div>Evin: <span id="evinCount">0</span></div>
-          <div>notificaciones: <span id="notifyCount">0</span></div>
-        </div>
-
-        <div class="layer-controls">
-          <h4>Capas Visibles</h4>
-          <div class="layer-toggle">
-            <input type="checkbox" id="showPoints" checked>
-            <label for="showPoints">Mostrar afectaciones </label>
-          </div>
-          <div class="layer-toggle">
-            <input type="checkbox" id="showPolygons" checked>
-            <label for="showPolygons">Mostrar áreas de influencia</label>
-          </div>
-          <div class="layer-toggle">
-            <input type="checkbox" id="showCooper" checked>
-            <label for="showCooper">Mostrar Clasificación de Daño (Cooper)</label>
-          </div>
-          <div class="layer-toggle">
-            <input type="checkbox" id="showEvin" checked>
-            <label for="showEvin">Mostrar Evin</label>
-          </div>
-          <div class="layer-toggle">
-            <input type="checkbox" id="showNotify" checked>
-            <label for="showNotify">Mostrar Notificaciones</label>
-          </div>
-        </div>
-
-        <div class="table-info">
-          <h4>Información de las Tablas</h4>
-          <p><strong>Afectaciones:</strong> Registros puntuales de gestión de riesgos</p>
-          <p><strong>Área de influencia:</strong> Polígonos de áreas afectadas</p>
-          <p><strong>Puntos de Influencia:</strong> Información referente a grado de afectació nde una edificación,
-            vialidad o Terreno mediante metodlogia Cooper</p>
-          <p><strong>EVIN:</strong> Muestra el levantamiento de información de lugares que han sido afectados por un
-            evento adverso</p>
-          <p><strong>Notificaciones:</strong>Muestra las notificaciones realizadas por parte de la Comisaría de Ornato
-          </p>
-        </div>
-      </div>
+    <div class="header">
+        <h1>🇪🇨 Estudios Geotécnicos - Cantón Loja</h1>
     </div>
 
-    <div class="map-container">
-      <div id="map"></div>
-      <div class="legend">
-        <div class="legend-section">
-          <div class="legend-title">Prioridad</div>
-          <div class="legend-item">
-            <div class="legend-icon" style="background-color: #dc3545; width: 16px; height: 16px; border-radius: 50%;">
-            </div>
-            <span>Prioridad Alta</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-icon" style="background-color: #ffc107; width: 16px; height: 16px; border-radius: 50%;">
-            </div>
-            <span>Prioridad Media</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-icon" style="background-color: #28a745; width: 16px; height: 16px; border-radius: 50%;">
-            </div>
-            <span>Prioridad Baja</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-icon" style="background-color: #007bff; width: 16px; height: 16px; border-radius: 50%;">
-            </div>
-            <span>Sin prioridad</span>
-          </div>
-        </div>
-        <div class="legend-section">
-          <div class="legend-title">Área de influencia</div>
-          <div class="legend-item">
-            <div class="legend-icon"
-              style="background-color: rgba(255, 0, 0, 0.3); border: 2px solid #ff0000; width: 16px; height: 16px;">
-            </div>
-            <span>Influencia</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Leaflet JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  <!--PDF-->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="app.js"></script>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Turf.js -->
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+    <script>
+        // Configuración de Supabase
+        const SUPABASE_O_URL = 'https://strvklqwxyenoobrqtis.supabase.co';
+        const SUPABASE_O_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0cnZrbHF3eHllbm9vYnJxdGlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0NTU2MzQsImV4cCI6MjA2ODAzMTYzNH0.tBX7U1Bsq5de9man6iCDmq-AudmYr-NC86v62tz4IKg';
+
+        // Variables globales
+        let map;
+        let estLayer;
+        let trlLayer;
+
+        // Inicializar el mapa
+        function initMap() {
+            // Centrar en Loja, Ecuador
+            map = L.map('map').setView([-3.9939, -79.2042], 12);
+
+            // Añadir capa base
+            L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: '© Google Satellite'
+            }).addTo(map);
+
+            // Inicializar capas
+            estLayer = L.layerGroup().addTo(map);
+            trlLayer = L.layerGroup().addTo(map);
+
+            // Cargar datos iniciales
+            cargarDatos();
+        }
+
+        // Función para obtener color basado en la resistencia del suelo (kg/cm²)
+        function getColorForResistencia(resistencia) {
+            return resistencia > 4.0 ? '#800026' :
+                   resistencia > 3.0 ? '#BD0026' :
+                   resistencia > 2.0 ? '#E31A1C' :
+                   resistencia > 1.5 ? '#FC4E2A' :
+                   resistencia > 1.0 ? '#FD8D3C' :
+                                      '#FEB24C';
+        }
+
+        // Función para validar y procesar cada punto
+        function procesarPunto(item) {
+            // Validar resistencia
+            const resistencia = parseFloat(item.Q_u_Kgcm2);
+            if (isNaN(resistencia)) {
+                console.warn(`Resistencia inválida en punto ${item.id}:`, item.Q_u_Kgcm2);
+                return null;
+            }
+
+            // Validar coordenadas
+            if (!item.geom?.coordinates || item.geom.coordinates.length < 2) {
+                console.warn(`Coordenadas inválidas en punto ${item.id}:`, item.geom?.coordinates);
+                return null;
+            }
+
+            const lon = parseFloat(item.geom.coordinates[0]);
+            const lat = parseFloat(item.geom.coordinates[1]);
+            
+            if (isNaN(lon) || isNaN(lat)) {
+                console.warn(`Coordenadas no numéricas en punto ${item.id}:`, item.geom.coordinates);
+                return null;
+            }
+
+            return {
+                "type": "Feature",
+                "properties": {
+                    "id": item.id,
+                    "autor": item.Laboratorio || "Anónimo",
+                    "altura": item.geom.coordinates[2] || "N/A",
+                    "class": item.CLASS_SUCS || "Sin clasificación",
+                    "resistencia": resistencia,
+                    "qad": parseFloat(item.Q_a_Kgcm2) || 0
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [lon, lat]
+                }
+            };
+        }
+
+        // Función para calcular promedios de un conjunto de puntos
+        function calcularPromedios(puntos) {
+            if (puntos.length === 0) return { resistencia: 0, tipoSuelo: "Desconocido" };
+            
+            let sumaResistencia = 0;
+            const tiposSuelo = {};
+            let puntosValidos = 0;
+            
+            puntos.forEach(punto => {
+                const resistencia = parseFloat(punto.properties.resistencia);
+                if (!isNaN(resistencia)) {
+                    sumaResistencia += resistencia;
+                    puntosValidos++;
+                }
+                
+                const tipo = punto.properties.class || "Desconocido";
+                tiposSuelo[tipo] = (tiposSuelo[tipo] || 0) + 1;
+            });
+            
+            const resistenciaPromedio = puntosValidos > 0 ? sumaResistencia / puntosValidos : 0;
+            const tipoPredominante = Object.keys(tiposSuelo).reduce((a, b) => 
+                tiposSuelo[a] > tiposSuelo[b] ? a : b, "Desconocido");
+            
+            return {
+                resistencia: Math.round(resistenciaPromedio * 100) / 100,
+                tipoSuelo: tipoPredominante,
+                puntosUsados: puntosValidos
+            };
+        }
+
+        // Cargar datos de estudios geotécnicos
+        async function cargarDatos() {
+            try {
+                console.log("Cargando datos de Supabase...");
+                
+                const estResponse = await fetch(`${SUPABASE_O_URL}/rest/v1/est_geo?select=*`, {
+                    headers: {
+                        'apikey': SUPABASE_O_KEY,
+                        'Authorization': `Bearer ${SUPABASE_O_KEY}`
+                    }
+                });
+
+                if (!estResponse.ok) {
+                    throw new Error(`Error al cargar datos: ${estResponse.status} ${estResponse.statusText}`);
+                }
+
+                const estData = await estResponse.json();
+                console.log("Datos recibidos:", estData);
+                
+                if (!estData || estData.length === 0) {
+                    throw new Error("No se encontraron datos en la tabla est_geo");
+                }
+
+                mostrarDatosEnMapa(estData);
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                alert(`Error al cargar datos: ${error.message}`);
+            }
+        }
+
+        // Mostrar datos en el mapa
+        function mostrarDatosEnMapa(estData) {
+            estLayer.clearLayers();
+            trlLayer.clearLayers();
+
+            // Procesar y filtrar puntos válidos
+            const puntosSuelo = {
+                "type": "FeatureCollection",
+                "features": estData.map(procesarPunto).filter(p => p !== null)
+            };
+
+            console.log(`Puntos válidos: ${puntosSuelo.features.length} de ${estData.length}`);
+
+            // Mostrar puntos de perforación
+            puntosSuelo.features.forEach(punto => {
+                L.circleMarker([punto.geometry.coordinates[1], punto.geometry.coordinates[0]], {
+                    radius: 6,
+                    fillColor: '#555',
+                    color: "#fff",
+                    weight: 1,
+                    fillOpacity: 0.8
+                }).bindPopup(`
+                    <b>Punto ${punto.properties.id}</b><br>
+                    <b>Autor:</b> ${punto.properties.autor}<br>
+                    <b>Altura:</b> ${punto.properties.altura}
+                `).addTo(estLayer);
+            });
+
+            // Crear triangulación si hay suficientes puntos
+            if (puntosSuelo.features.length >= 3) {
+                console.log("Creando triangulación con", puntosSuelo.features.length, "puntos");
+                
+                const triangulacion = turf.tin(puntosSuelo);
+                
+                triangulacion.features.forEach((triangulo, index) => {
+                    // Encontrar puntos que pertenecen a este triángulo
+                    const puntosTriangulo = puntosSuelo.features.filter(punto => {
+                        const [lon, lat] = punto.geometry.coordinates;
+                        return triangulo.geometry.coordinates[0].some(coord => 
+                            coord[0] === lon && coord[1] === lat
+                        );
+                    });
+                    
+                    // Calcular promedios para el área
+                    const promedios = calcularPromedios(puntosTriangulo);
+                    
+                    // Solo mostrar áreas con datos válidos
+                    if (!isNaN(promedios.resistencia) && promedios.puntosUsados > 0) {
+                        const color = getColorForResistencia(promedios.resistencia);
+                        
+                        L.geoJSON(triangulo, {
+                            style: {
+                                fillColor: color,
+                                weight: 1,
+                                color: color,
+                                fillOpacity: 0.5
+                            }
+                        }).bindPopup(`
+                            <b>Poligono${index + 1}</b><br>
+                            <b>Resistencia promedio:</b> ${promedios.resistencia} kg/cm²<br>
+                            <b>Tipo de suelo:</b> ${promedios.tipoSuelo}<br>
+                            <b>Puntos considerados:</b> ${promedios.puntosUsados}
+                        `).addTo(trlLayer);
+                    }
+                });
+            } else {
+                console.warn(`No hay suficientes puntos para triangulación (se necesitan 3, hay ${puntosSuelo.features.length})`);
+            }
+
+            // Añadir leyenda
+            const legend = L.control({position: 'bottomright'});
+            legend.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'info-panel');
+                const resistencias = [0, 1.0, 1.5, 2.0, 3.0, 4.0];
+                
+                div.innerHTML = '<h3>Resistencia Promedio (kg/cm²)</h3>';
+                
+                for (let i = 0; i < resistencias.length; i++) {
+                    div.innerHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background:${getColorForResistencia(resistencias[i] + 0.1)}"></div>
+                            ${resistencias[i]}${resistencias[i + 1] ? `–${resistencias[i + 1]}` : '+'}
+                        </div>`;
+                }
+                
+                div.innerHTML += `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background:#555;opacity:0.8"></div>
+                        Puntos de perforación
+                    </div>`;
+                
+                return div;
+            };
+            legend.addTo(map);
+
+            // Añadir control de capas
+            L.control.layers(null, {
+                "Puntos de perforación": estLayer,
+                "poligono de analisis de resistencia": trlLayer
+            }, {collapsed: false}).addTo(map);
+        }
+
+        // Inicializar cuando cargue la página
+        window.onload = function() {
+            initMap();
+        };
+    </script>
 </body>
-
 </html>
