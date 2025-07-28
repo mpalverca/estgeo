@@ -4,89 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estudios Geotécnicos - Cantón Loja</title>
-    
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #2c3e50, #3498db);
-            color: white;
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            position: relative;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            font-weight: 300;
-        }
-
-        #map {
-            height: calc(100vh - 60px);
-            width: 100%;
-        }
-
-        .info-panel {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            max-width: 300px;
-            z-index: 1000;
-        }
-
-        .info-panel h3 {
-            margin-bottom: 10px;
-            color: #2c3e50;
-            font-size: 16px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        .legend-color {
-            width: 15px;
-            height: 15px;
-            border-radius: 3px;
-            margin-right: 8px;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; overflow: hidden; }
+        .header { background: linear-gradient(135deg, #2c3e50, #3498db); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); z-index: 1000; position: relative; }
+        .header h1 { font-size: 24px; font-weight: 300; }
+        #map { height: calc(100vh - 60px); width: 100%; }
+        .info-panel { position: fixed; bottom: 20px; left: 20px; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); max-width: 300px; z-index: 1000; }
+        .info-panel h3 { margin-bottom: 10px; color: #2c3e50; font-size: 16px; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px; }
+        .legend-color { width: 15px; height: 15px; border-radius: 3px; margin-right: 8px; }
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 18px;
-            }
-
-            .info-panel {
-                position: relative;
-                bottom: auto;
-                left: auto;
-                margin: 10px;
-                max-width: none;
-            }
+            .header h1 { font-size: 18px; }
+            .info-panel { position: relative; bottom: auto; left: auto; margin: 10px; max-width: none; }
         }
     </style>
 </head>
@@ -94,145 +25,161 @@
     <div class="header">
         <h1>🇪🇨 Estudios Geotécnicos - Cantón Loja</h1>
     </div>
-
     <div id="map"></div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Turf.js -->
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
     <script>
-        // Configuración de Supabase
+        // Configuración
         const SUPABASE_O_URL = 'https://strvklqwxyenoobrqtis.supabase.co';
         const SUPABASE_O_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0cnZrbHF3eHllbm9vYnJxdGlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0NTU2MzQsImV4cCI6MjA2ODAzMTYzNH0.tBX7U1Bsq5de9man6iCDmq-AudmYr-NC86v62tz4IKg';
 
         // Variables globales
-        let map;
-        let estLayer;
-        let trlLayer;
+        let map, estLayer, voronoiLayer;
+        const MAX_DISTANCE_KM = 2; // Radio máximo para influencia de puntos
 
         // Inicializar el mapa
         function initMap() {
-            // Centrar en Loja, Ecuador
             map = L.map('map').setView([-3.9939, -79.2042], 12);
-
-            // Añadir capa base
             L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
                 attribution: '© Google Satellite'
             }).addTo(map);
-
-            // Inicializar capas
             estLayer = L.layerGroup().addTo(map);
-            trlLayer = L.layerGroup().addTo(map);
-
-            // Cargar datos iniciales
+            voronoiLayer = L.layerGroup().addTo(map);
             cargarDatos();
         }
 
-        // Función para obtener color basado en la resistencia del suelo (kg/cm²)
+        // Función para obtener color basado en la resistencia (rangos de 2 en 2 hasta 10+)
         function getColorForResistencia(resistencia) {
-            return resistencia > 4.0 ? '#800026' :
-                   resistencia > 3.0 ? '#BD0026' :
-                   resistencia > 2.0 ? '#E31A1C' :
-                   resistencia > 1.5 ? '#FC4E2A' :
-                   resistencia > 1.0 ? '#FD8D3C' :
-                                      '#FEB24C';
+            return resistencia > 10 ? '#000000' : // Negro para >10
+                   resistencia > 8 ? '#800026' :  // Rojo oscuro para 8-10
+                   resistencia > 6 ? '#BD0026' : // Rojo para 6-8
+                   resistencia > 4 ? '#E31A1C' : // Rojo claro para 4-6
+                   resistencia > 2 ? '#FD8D3C' : // Naranja para 2-4
+                                    '#FEB24C';   // Amarillo para 0-2
         }
 
-        // Función para validar y procesar cada punto
+        // Procesar cada punto con validación robusta
         function procesarPunto(item) {
-            // Validar resistencia
-            const resistencia = parseFloat(item.Q_u_Kgcm2);
-            if (isNaN(resistencia)) {
-                console.warn(`Resistencia inválida en punto ${item.id}:`, item.Q_u_Kgcm2);
+            try {
+                const resistencia = parseFloat(item.Q_u_Kgcm2);
+                if (isNaN(resistencia)) return null;
+
+                if (!item.geom?.coordinates || item.geom.coordinates.length < 2) return null;
+
+                const lon = parseFloat(item.geom.coordinates[0]);
+                const lat = parseFloat(item.geom.coordinates[1]);
+                if (isNaN(lon) || isNaN(lat)) return null;
+
+                return {
+                    "type": "Feature",
+                    "properties": {
+                        "id": item.id,
+                        "autor": item.Laboratorio || "Anónimo",
+                        "class": item.CLASS_SUCS || "Sin clasificación",
+                        "resistencia": resistencia,
+                        "qad": parseFloat(item.Q_a_Kgcm2) || 0,
+                        "lon": lon,
+                        "lat": lat
+                    },
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [lon, lat]
+                    }
+                };
+            } catch (e) {
+                console.error("Error procesando punto:", item, e);
                 return null;
             }
-
-            // Validar coordenadas
-            if (!item.geom?.coordinates || item.geom.coordinates.length < 2) {
-                console.warn(`Coordenadas inválidas en punto ${item.id}:`, item.geom?.coordinates);
-                return null;
-            }
-
-            const lon = parseFloat(item.geom.coordinates[0]);
-            const lat = parseFloat(item.geom.coordinates[1]);
-            
-            if (isNaN(lon) || isNaN(lat)) {
-                console.warn(`Coordenadas no numéricas en punto ${item.id}:`, item.geom.coordinates);
-                return null;
-            }
-
-            return {
-                "type": "Feature",
-                "properties": {
-                    "id": item.id,
-                    "autor": item.Laboratorio || "Anónimo",
-                    "altura": item.geom.coordinates[2] || "N/A",
-                    "class": item.CLASS_SUCS || "Sin clasificación",
-                    "resistencia": resistencia,
-                    "qad": parseFloat(item.Q_a_Kgcm2) || 0
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [lon, lat]
-                }
-            };
         }
 
-        // Función para calcular promedios de un conjunto de puntos
-        function calcularPromedios(puntos) {
-            if (puntos.length === 0) return { resistencia: 0, tipoSuelo: "Desconocido" };
-            
-            let sumaResistencia = 0;
-            const tiposSuelo = {};
-            let puntosValidos = 0;
-            
-            puntos.forEach(punto => {
-                const resistencia = parseFloat(punto.properties.resistencia);
-                if (!isNaN(resistencia)) {
-                    sumaResistencia += resistencia;
-                    puntosValidos++;
-                }
+        // Crear áreas de influencia ajustadas alrededor de los puntos
+        function crearAreasInfluencia(puntos) {
+            try {
+                // Calcular el bbox dinámico basado en los puntos
+                const coords = puntos.features.map(p => p.geometry.coordinates);
+                const lons = coords.map(c => c[0]);
+                const lats = coords.map(c => c[1]);
                 
-                const tipo = punto.properties.class || "Desconocido";
-                tiposSuelo[tipo] = (tiposSuelo[tipo] || 0) + 1;
-            });
-            
-            const resistenciaPromedio = puntosValidos > 0 ? sumaResistencia / puntosValidos : 0;
-            const tipoPredominante = Object.keys(tiposSuelo).reduce((a, b) => 
-                tiposSuelo[a] > tiposSuelo[b] ? a : b, "Desconocido");
-            
-            return {
-                resistencia: Math.round(resistenciaPromedio * 100) / 100,
-                tipoSuelo: tipoPredominante,
-                puntosUsados: puntosValidos
-            };
+                // Expandir un poco el bbox (10% más grande)
+                const padding = 0.1;
+                const minLon = Math.min(...lons) - padding;
+                const minLat = Math.min(...lats) - padding;
+                const maxLon = Math.max(...lons) + padding;
+                const maxLat = Math.max(...lats) + padding;
+                
+                const bbox = [minLon, minLat, maxLon, maxLat];
+                
+                // Crear diagrama de Voronoi
+                const voronoiPoligonos = turf.voronoi(puntos, { bbox });
+                
+                // Calcular resistencia promedio por área de influencia
+                const poligonosConPromedio = voronoiPoligonos.features.map(poligono => {
+                    // Encontrar todos los puntos dentro o cerca del polígono
+                    const puntosCercanos = puntos.features.filter(punto => {
+                        const puntoGeom = turf.point([punto.geometry.coordinates[0], punto.geometry.coordinates[1]]);
+                        return turf.booleanPointInPolygon(puntoGeom, poligono) || 
+                               turf.distance(puntoGeom, turf.centroid(poligono), { units: 'kilometers' }) <= MAX_DISTANCE_KM;
+                    });
+                    
+                    // Calcular resistencia promedio
+                    const sumaResistencia = puntosCercanos.reduce((sum, p) => sum + p.properties.resistencia, 0);
+                    const resistenciaPromedio = puntosCercanos.length > 0 ? sumaResistencia / puntosCercanos.length : 0;
+                    
+                    // Encontrar el punto central (el más cercano al centroide)
+                    const centroide = turf.centroid(poligono);
+                    const puntoCentral = puntos.features.reduce((closest, punto) => {
+                        const distancia = turf.distance(centroide, punto);
+                        return distancia < closest.distancia ? 
+                            { punto, distancia } : closest;
+                    }, { punto: null, distancia: Infinity }).punto;
+                    
+                    // Crear polígono ajustado (recortar si es muy grande)
+                    let poligonoAjustado = poligono;
+                    if (turf.area(poligono) / 1000000 > 10) { // Si área > 10 km²
+                        const buffer = turf.buffer(puntoCentral, MAX_DISTANCE_KM, { units: 'kilometers' });
+                        poligonoAjustado = turf.intersect(poligono, buffer) || poligono;
+                    }
+                    
+                    return {
+                        ...poligonoAjustado,
+                        properties: {
+                            ...(puntoCentral?.properties || {}),
+                            resistencia_promedio: resistenciaPromedio,
+                            puntos_incluidos: puntosCercanos.map(p => p.properties.id).join(', '),
+                            cantidad_puntos: puntosCercanos.length
+                        }
+                    };
+                });
+                
+                return {
+                    ...voronoiPoligonos,
+                    features: poligonosConPromedio
+                };
+            } catch (e) {
+                console.error("Error creando áreas de influencia:", e);
+                return null;
+            }
         }
 
-        // Cargar datos de estudios geotécnicos
+        // Cargar datos con manejo de errores
         async function cargarDatos() {
             try {
-                console.log("Cargando datos de Supabase...");
-                
                 const estResponse = await fetch(`${SUPABASE_O_URL}/rest/v1/est_geo?select=*`, {
-                    headers: {
-                        'apikey': SUPABASE_O_KEY,
-                        'Authorization': `Bearer ${SUPABASE_O_KEY}`
-                    }
+                    headers: { 'apikey': SUPABASE_O_KEY, 'Authorization': `Bearer ${SUPABASE_O_KEY}` }
                 });
-
-                if (!estResponse.ok) {
-                    throw new Error(`Error al cargar datos: ${estResponse.status} ${estResponse.statusText}`);
-                }
-
-                const estData = await estResponse.json();
-                console.log("Datos recibidos:", estData);
                 
-                if (!estData || estData.length === 0) {
-                    throw new Error("No se encontraron datos en la tabla est_geo");
+                if (!estResponse.ok) {
+                    throw new Error(`HTTP error! status: ${estResponse.status}`);
                 }
-
+                
+                const estData = await estResponse.json();
+                
+                if (!estData || !Array.isArray(estData)) {
+                    throw new Error("Datos recibidos no son válidos");
+                }
+                
                 mostrarDatosEnMapa(estData);
             } catch (error) {
                 console.error('Error cargando datos:', error);
@@ -242,110 +189,102 @@
 
         // Mostrar datos en el mapa
         function mostrarDatosEnMapa(estData) {
-            estLayer.clearLayers();
-            trlLayer.clearLayers();
+            try {
+                estLayer.clearLayers();
+                voronoiLayer.clearLayers();
 
-            // Procesar y filtrar puntos válidos
-            const puntosSuelo = {
-                "type": "FeatureCollection",
-                "features": estData.map(procesarPunto).filter(p => p !== null)
-            };
+                // Procesar puntos válidos
+                const puntosSuelo = {
+                    "type": "FeatureCollection",
+                    "features": estData.map(procesarPunto).filter(p => p !== null)
+                };
 
-            console.log(`Puntos válidos: ${puntosSuelo.features.length} de ${estData.length}`);
+                // Mostrar puntos
+                puntosSuelo.features.forEach(punto => {
+                    L.circleMarker([punto.geometry.coordinates[1], punto.geometry.coordinates[0]], {
+                        radius: 6, fillColor: '#555', color: "#fff", weight: 1, fillOpacity: 0.8
+                    }).bindPopup(`
+                        <b>Punto ${punto.properties.id}</b><br>
+                        <b>Laboratorio:</b> ${punto.properties.autor}<br>                        
+                        <b>Tipo suelo:</b> ${punto.properties.class}
+                    `).addTo(estLayer);
+                });
 
-            // Mostrar puntos de perforación
-            puntosSuelo.features.forEach(punto => {
-                L.circleMarker([punto.geometry.coordinates[1], punto.geometry.coordinates[0]], {
-                    radius: 6,
-                    fillColor: '#555',
-                    color: "#fff",
-                    weight: 1,
-                    fillOpacity: 0.8
-                }).bindPopup(`
-                    <b>Punto ${punto.properties.id}</b><br>
-                    <b>Autor:</b> ${punto.properties.autor}<br>
-                    <b>Altura:</b> ${punto.properties.altura}
-                `).addTo(estLayer);
-            });
-
-            // Crear triangulación si hay suficientes puntos
-            if (puntosSuelo.features.length >= 3) {
-                console.log("Creando triangulación con", puntosSuelo.features.length, "puntos");
+                // Crear áreas de influencia optimizadas
+                const areasInfluencia = crearAreasInfluencia(puntosSuelo);
                 
-                const triangulacion = turf.tin(puntosSuelo);
-                
-                triangulacion.features.forEach((triangulo, index) => {
-                    // Encontrar puntos que pertenecen a este triángulo
-                    const puntosTriangulo = puntosSuelo.features.filter(punto => {
-                        const [lon, lat] = punto.geometry.coordinates;
-                        return triangulo.geometry.coordinates[0].some(coord => 
-                            coord[0] === lon && coord[1] === lat
-                        );
-                    });
-                    
-                    // Calcular promedios para el área
-                    const promedios = calcularPromedios(puntosTriangulo);
-                    
-                    // Solo mostrar áreas con datos válidos
-                    if (!isNaN(promedios.resistencia) && promedios.puntosUsados > 0) {
-                        const color = getColorForResistencia(promedios.resistencia);
+                if (areasInfluencia) {
+                    // Mostrar polígonos de influencia
+                    areasInfluencia.features.forEach(poligono => {
+                        const resistencia = poligono.properties.resistencia_promedio;
+                        const color = getColorForResistencia(resistencia);
                         
-                        L.geoJSON(triangulo, {
+                        L.geoJSON(poligono, {
                             style: {
                                 fillColor: color,
                                 weight: 1,
-                                color: color,
+                                opacity: 0.7,
+                                color: '#333',
                                 fillOpacity: 0.5
                             }
                         }).bindPopup(`
-                            <b>Poligono${index + 1}</b><br>
-                            <b>Resistencia promedio:</b> ${promedios.resistencia} kg/cm²<br>
-                            <b>Tipo de suelo:</b> ${promedios.tipoSuelo}<br>
-                            <b>Puntos considerados:</b> ${promedios.puntosUsados}
-                        `).addTo(trlLayer);
-                    }
-                });
-            } else {
-                console.warn(`No hay suficientes puntos para triangulación (se necesitan 3, hay ${puntosSuelo.features.length})`);
-            }
+                            <b>Área de influencia</b><br>
+                            <b>Resistencia promedio:</b> ${resistencia.toFixed(2)} kg/cm²<br>
+                            <b>Tipo suelo predominante:</b> ${poligono.properties.class}<br>
+                            
+                        `).addTo(voronoiLayer);
+                    });
+                }
 
-            // Añadir leyenda
-            const legend = L.control({position: 'bottomright'});
-            legend.onAdd = function(map) {
-                const div = L.DomUtil.create('div', 'info-panel');
-                const resistencias = [0, 1.0, 1.5, 2.0, 3.0, 4.0];
-                
-                div.innerHTML = '<h3>Resistencia Promedio (kg/cm²)</h3>';
-                
-                for (let i = 0; i < resistencias.length; i++) {
+                // Añadir leyenda con los nuevos rangos
+                const legend = L.control({ position: 'bottomright' });
+                legend.onAdd = function(map) {
+                    const div = L.DomUtil.create('div', 'info-panel');
+                    const rangos = [
+                        { min: 0, max: 2, color: '#FEB24C' },
+                        { min: 2, max: 4, color: '#FD8D3C' },
+                        { min: 4, max: 6, color: '#E31A1C' },
+                        { min: 6, max: 8, color: '#BD0026' },
+                        { min: 8, max: 10, color: '#800026' },
+                        { min: 10, max: Infinity, color: '#000000' }
+                    ];
+                    
+                    div.innerHTML = '<h3>Resistencia Promedio (kg/cm²)</h3>';
+                    
+                    rangos.forEach(rango => {
+                        const etiqueta = rango.max === Infinity ? 
+                            `${rango.min}+` : 
+                            `${rango.min}–${rango.max}`;
+                        
+                        div.innerHTML += `
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:${rango.color}"></div>
+                                ${etiqueta}
+                            </div>`;
+                    });
+                    
                     div.innerHTML += `
                         <div class="legend-item">
-                            <div class="legend-color" style="background:${getColorForResistencia(resistencias[i] + 0.1)}"></div>
-                            ${resistencias[i]}${resistencias[i + 1] ? `–${resistencias[i + 1]}` : '+'}
+                            <div class="legend-color" style="background:#555;opacity:0.8"></div>
+                            Puntos de perforación
                         </div>`;
-                }
-                
-                div.innerHTML += `
-                    <div class="legend-item">
-                        <div class="legend-color" style="background:#555;opacity:0.8"></div>
-                        Puntos de perforación
-                    </div>`;
-                
-                return div;
-            };
-            legend.addTo(map);
+                    return div;
+                };
+                legend.addTo(map);
 
-            // Añadir control de capas
-            L.control.layers(null, {
-                "Puntos de perforación": estLayer,
-                "poligono de analisis de resistencia": trlLayer
-            }, {collapsed: false}).addTo(map);
+                // Control de capas
+                L.control.layers(null, {
+                    "Puntos de perforación": estLayer,
+                    "Áreas de influencia": voronoiLayer
+                }, { collapsed: false }).addTo(map);
+
+            } catch (e) {
+                console.error("Error mostrando datos:", e);
+                alert("Error al mostrar los datos en el mapa");
+            }
         }
 
-        // Inicializar cuando cargue la página
-        window.onload = function() {
-            initMap();
-        };
+        window.onload = initMap;
     </script>
 </body>
 </html>
